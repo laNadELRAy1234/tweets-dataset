@@ -1,66 +1,80 @@
-import altair as alt
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import requests
+import io
 
-# Show the page title and description.
-st.set_page_config(page_title="Movies dataset", page_icon="🎬")
-st.title("🎬 Movies dataset")
-st.write(
-    """
-    This app visualizes data from [The Movie Database (TMDB)](https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata).
-    It shows which movie genre performed best at the box office over the years. Just 
-    click on the widgets below to explore!
-    """
-)
+# Function to fetch quote tweets
 
+def get_quote_tweets(tweet_id, bearer_token):
+    quotes_url = f"https://api.twitter.com/2/tweets/{tweet_id}/quote_tweets"
+    
+    headers = {
+        "Authorization": f"Bearer {bearer_token}"
+    }
+    
+    params = {
+        "tweet.fields": "public_metrics",
+        "max_results": 100
+    }
+    
+    response = requests.get(quotes_url, headers=headers, params=params)
+    print(response)
+    return response.json().get('data', [])  # Get the 'data' field or empty list if not found
 
-# Load the data from a CSV. We're caching this so it doesn't reload every time the app
-# reruns (e.g. if the user interacts with the widgets).
-@st.cache_data
-def load_data():
-    df = pd.read_csv("data/movies_genres_summary.csv")
-    return df
+# Streamlit app
+st.title("Tweet Quotes CSV ")
+st.write("Remember 1 trial per 15 minutes")
+# Input for Tweet ID
+tweet_id = st.text_input("Enter the Tweet ID", placeholder="e.g., 1819405100861075526")
 
-
-df = load_data()
-
-# Show a multiselect widget with the genres using `st.multiselect`.
-genres = st.multiselect(
-    "Genres",
-    df.genre.unique(),
-    ["Action", "Adventure", "Biography", "Comedy", "Drama", "Horror"],
-)
-
-# Show a slider widget with the years using `st.slider`.
-years = st.slider("Years", 1986, 2006, (2000, 2016))
-
-# Filter the dataframe based on the widget input and reshape it.
-df_filtered = df[(df["genre"].isin(genres)) & (df["year"].between(years[0], years[1]))]
-df_reshaped = df_filtered.pivot_table(
-    index="year", columns="genre", values="gross", aggfunc="sum", fill_value=0
-)
-df_reshaped = df_reshaped.sort_values(by="year", ascending=False)
-
-
-# Display the data as a table using `st.dataframe`.
-st.dataframe(
-    df_reshaped,
-    use_container_width=True,
-    column_config={"year": st.column_config.TextColumn("Year")},
-)
-
-# Display the data as an Altair chart using `st.altair_chart`.
-df_chart = pd.melt(
-    df_reshaped.reset_index(), id_vars="year", var_name="genre", value_name="gross"
-)
-chart = (
-    alt.Chart(df_chart)
-    .mark_line()
-    .encode(
-        x=alt.X("year:N", title="Year"),
-        y=alt.Y("gross:Q", title="Gross earnings ($)"),
-        color="genre:N",
-    )
-    .properties(height=320)
-)
-st.altair_chart(chart, use_container_width=True)
+# Button to fetch data
+if st.button("Collect Quote Tweets"):
+    if not tweet_id:
+        st.error("Please enter a valid Tweet ID.")
+    else:
+        try:
+            # Replace with your actual Bearer Token
+            bearer_token = "AAAAAAAAAAAAAAAAAAAAAPLiyQEAAAAA2krIjdfssyPvUz06%2FKiLj7rxLJM%3DYoNMzfOkBTbp92j3w0rGJcq6oYLMql84xNyZ54D9Ox7YL4jSly"
+            
+            # Fetch quote tweets
+            st.info("Collecting quote tweets...")
+            quotes = get_quote_tweets(tweet_id, bearer_token)
+            
+            if not quotes:
+                
+                st.warning("No quote tweets found for this Tweet ID.")
+            else:
+                # Process data into a DataFrame
+                data = []
+                for tweet in quotes:
+                    data.append({
+                        'tweet_id': tweet['id'],
+                        'text': tweet['text'],
+                        'retweet_count': tweet['public_metrics']['retweet_count'],
+                        'reply_count': tweet['public_metrics']['reply_count'],
+                        'like_count': tweet['public_metrics']['like_count'],
+                        'quote_count': tweet['public_metrics']['quote_count'],
+                        'impression_count': tweet['public_metrics'].get('impression_count', 0)
+                    })
+                
+                df = pd.DataFrame(data)
+                
+                # Display the DataFrame in the app
+                st.success(f"Collected {len(quotes)} quote tweets!")
+                st.write("Preview of Quote Tweets:")
+                st.dataframe(df)
+                
+                # Save the DataFrame to a CSV in-memory
+                output = io.BytesIO()
+                df.to_csv(output, index=False)
+                processed_csv = output.getvalue()
+                
+                # Provide a download button
+                st.download_button(
+                    label="Download Quote Tweets as CSV",
+                    data=processed_csv,
+                    file_name="quote_tweets.csv",
+                    mime="text/csv"
+                )
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
