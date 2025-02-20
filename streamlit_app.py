@@ -19,15 +19,15 @@ def get_quote_tweets(tweet_id, bearer_token):
     
     response = requests.get(quotes_url, headers=headers, params=params)
     print(response)
-    return response.json().get('data', [])  # Get the 'data' field or empty list if not found
+    return response.json().get('data', [])  # Get the 'data' field or an empty list if not found
 
 # Streamlit app
 st.title("Tweet Quotes CSV ")
-st.write("Remember 1 trial per 15 minutes")
+st.write("Remember 1 trial per 15 minutes. Enter Post ID. Not User ID")
 # Input for Tweet ID
-tweet_id = st.text_input("Enter the Tweet ID", placeholder="e.g., 1819405100861075526")
+tweet_id = st.text_input("Enter the Tweet ID ", placeholder="e.g., 1819405100861075526")
 
-# Button to fetch data
+
 if st.button("Collect Quote Tweets"):
     if not tweet_id:
         st.error("Please enter a valid Tweet ID.")
