@@ -54,7 +54,7 @@ if st.button("Collect Quote Tweets"):
                         'reply_count': tweet['public_metrics']['reply_count'],
                         'like_count': tweet['public_metrics']['like_count'],
                         'quote_count': tweet['public_metrics']['quote_count'],
-                        'impression_count': tweet['public_metrics'].get('impression_count', 0)
+                        'impression_count': tweet['public_metrics']['impression_count']
                     })
                 
                 df = pd.DataFrame(data)
